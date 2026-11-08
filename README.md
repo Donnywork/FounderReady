@@ -2,7 +2,9 @@
 
 A persistent technical readiness advisor for nontechnical founders taking an AI-built demo to real users. Describe your product, answer up to five adaptive questions, approve an editable project profile, and work through 3–5 prioritized checkpoints. Conversations share project context and propose changes for your approval.
 
-## Run locally
+## Get started
+
+### Run locally
 
 Requires Node **24.21+ / 24.x**, **pnpm 11.21.0**, and Docker Compose.
 
@@ -17,7 +19,19 @@ pnpm dev
 
 Open **http://localhost:3000**. PostgreSQL runs on **54329** with a persistent named volume. Keep configuration in the root `.env`; restart the app after editing it. The normal application always calls the real OpenAI Responses API. There is no production mock mode. `OPENAI_MODEL` defaults to `gpt-4.1-mini` and must support structured outputs. Missing credentials produce a recoverable error without losing saved work.
 
-For production: `pnpm build && pnpm start`. Stop the app with Ctrl+C; `pnpm docker:down` stops PostgreSQL and retains its volume. See [setup and operations](docs/setup.md) for HTTPS, environment variables, testing, and troubleshooting.
+Stop the app with Ctrl+C; `pnpm docker:down` stops PostgreSQL and retains its volume. See [setup and operations](docs/setup.md) for HTTPS, environment variables, testing, and troubleshooting.
+
+### Deploy on Vercel
+
+1. Import the repository into Vercel with the **Next.js** preset and **Root Directory** set to `apps/web`.
+2. Connect a hosted PostgreSQL database, such as Neon. In Vercel's **Production** environment, configure `DATABASE_URL` (pooled), `DATABASE_URL_UNPOOLED` (direct), `OPENAI_API_KEY`, `OPENAI_MODEL`, `APP_URL` (your exact public HTTPS origin), and `COOKIE_SECURE=true`. Neon's Vercel integration supplies both database URLs.
+3. Under **Settings → Build and Deployment**, override **Build Command** with this single line:
+
+```sh
+if [ "$VERCEL_ENV" = "production" ]; then DATABASE_URL="$DATABASE_URL_UNPOOLED" pnpm db:migrate && pnpm build; else pnpm build; fi
+```
+
+Save and trigger a new production deployment. Production builds apply pending migrations through the direct connection before building; the running app uses the pooled URL. Preview builds skip migrations. See [Vercel setup](docs/setup.md#deploy-on-vercel-neon) for environment values, migration logs, and preview database setup.
 
 ## Full demo
 
