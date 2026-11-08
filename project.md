@@ -1,5 +1,7 @@
 # Build FounderReady — Full-Stack MVP
 
+> Original project brief, retained for context. The expanded persistent-advisor workflow (profile approval, separate verification/disposition, readiness map, evidence reviews, and approved conversation changes) is implemented and documented in [README.md](README.md). Follow the README for current behavior and run commands.
+
 ## Product Background
 
 FounderReady is an AI-powered technical readiness advisor for nontechnical startup founders who have built a working demo using tools like Cursor, Lovable, or Codex and want to launch to their first real users.

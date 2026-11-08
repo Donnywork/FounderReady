@@ -8,4 +8,5 @@ node_modules/
 coverage/
 playwright-report/
 test-results/
+/artifacts/readability/
 .DS_Store

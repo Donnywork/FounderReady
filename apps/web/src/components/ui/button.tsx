@@ -3,10 +3,10 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4",
+  "inline-flex max-w-full shrink-0 items-center justify-center gap-2 rounded-lg text-ui whitespace-normal transition-colors disabled:border-border disabled:bg-muted disabled:text-muted-foreground [&_svg]:size-4",
   { variants: {
-    variant: { default: "bg-primary text-primary-foreground hover:bg-primary/90", outline: "border border-input bg-background hover:bg-accent", ghost: "hover:bg-accent text-foreground", link: "text-primary underline-offset-4 hover:underline" },
-    size: { default: "h-10 px-4", sm: "h-8 px-3 text-xs", lg: "h-12 px-5", icon: "size-10" },
+    variant: { default: "bg-primary text-primary-foreground not-disabled:hover:bg-primary-hover", outline: "border border-input bg-surface text-primary not-disabled:hover:border-primary not-disabled:hover:bg-accent", ghost: "text-foreground not-disabled:hover:bg-accent", link: "text-primary underline underline-offset-4 not-disabled:hover:text-primary-hover" },
+    size: { default: "min-h-11 px-4 py-2", sm: "min-h-10 px-3 py-2 text-nav", lg: "min-h-12 px-5 py-3", icon: "size-11" },
   }, defaultVariants: { variant: "default", size: "default" } },
 );
 export function Button({ className, variant, size, asChild = false, ...props }: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {

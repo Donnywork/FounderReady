@@ -2,20 +2,31 @@
 
 :root {
   --background: #fafaf7;
-  --foreground: #252c28;
-  --primary: #2c5947;
+  --surface: #ffffff;
+  --sidebar: #f3f5ef;
+  --foreground: #202924;
+  --primary: #205b43;
+  --primary-hover: #174632;
   --primary-foreground: #ffffff;
-  --muted: #f0f1eb;
-  --muted-foreground: #6d746d;
-  --accent: #ebefe7;
-  --border: #e2e5dc;
-  --input: #d8ddd3;
-  --ring: #71927e;
+  --muted: #f0f2ed;
+  --muted-foreground: #526158;
+  --accent: #e8efe8;
+  --border: #d5ddd5;
+  /* Controls need stronger boundaries than decorative dividers. */
+  --input: #79887d;
+  --ring: #205b43;
+  --critical: #b42318;
+  --critical-surface: #fff0ee;
+  --warning: #9a5800;
+  --warning-surface: #fff5e5;
 }
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
@@ -23,13 +34,68 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: Arial, Helvetica, sans-serif;
+  --color-critical: var(--critical);
+  --color-critical-surface: var(--critical-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
 }
-* { border-color: var(--border); }
-body { background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
-button, a, select, summary { -webkit-tap-highlight-color: transparent; }
-button:not(:disabled), summary, select { cursor: pointer; }
-::selection { background: #dae6d8; }
-textarea { field-sizing: content; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+@theme {
+  --text-page: clamp(2.25rem, 3vw, 2.625rem);
+  --text-page--line-height: 1.18;
+  --text-page--font-weight: 600;
+  --text-page--letter-spacing: -0.025em;
+  --text-section: clamp(1.5rem, 2vw, 1.75rem);
+  --text-section--line-height: 1.3;
+  --text-section--font-weight: 600;
+  --text-card: 1.125rem;
+  --text-card--line-height: 1.4;
+  --text-card--font-weight: 600;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-support: 0.875rem;
+  --text-support--line-height: 1.55;
+  --text-ui: 1rem;
+  --text-ui--line-height: 1.5;
+  --text-ui--font-weight: 500;
+  --text-nav: 0.9375rem;
+  --text-nav--line-height: 1.5;
+  --text-nav--font-weight: 500;
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.5;
+  --text-label--font-weight: 600;
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html { color-scheme: light; }
+  body { @apply bg-background font-sans text-body text-foreground; overflow-wrap: anywhere; }
+  button, a, select, summary { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), summary, select:not(:disabled) { cursor: pointer; }
+  button:disabled, input:disabled, textarea:disabled, select:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+  ::selection { background: var(--accent); color: var(--foreground); }
+  textarea { field-sizing: content; }
+  select { max-width: 100%; }
+  input[type="checkbox"] { accent-color: var(--primary); width: 1.125rem; height: 1.125rem; flex-shrink: 0; }
+  main p, main pre { max-inline-size: 72ch; }
+  svg { flex-shrink: 0; }
+}
+
+@layer components {
+  .page-title { @apply font-serif text-page; text-wrap: pretty; }
+  .section-title { @apply text-section; text-wrap: pretty; }
+  .card-title { @apply text-card; }
+  .page-intro { @apply mt-4 max-w-prose text-body text-muted-foreground; }
+  .nav-item { @apply flex min-h-11 w-full items-center gap-3 rounded-lg border-l-2 border-transparent px-3 py-2 text-left text-nav text-muted-foreground transition-colors hover:bg-accent hover:text-foreground; }
+  .nav-item[aria-current="page"] { @apply border-primary bg-accent font-semibold text-primary; }
+  .nav-item:disabled { @apply bg-muted text-muted-foreground; }
+  .form-control { @apply min-h-11 w-full min-w-0 rounded-lg border border-input bg-surface px-3 py-2 text-ui text-foreground transition-colors placeholder:text-muted-foreground hover:border-primary disabled:border-border disabled:bg-muted disabled:text-muted-foreground; }
+  .checkpoint-row { @apply flex w-full items-start gap-3 rounded-md px-2 py-4 text-left transition-colors hover:bg-muted sm:gap-4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
