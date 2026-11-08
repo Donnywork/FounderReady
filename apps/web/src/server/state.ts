@@ -13,7 +13,7 @@ export function riskFields(risk: RiskRow) {
 export async function audit(manager: EntityManager, projectId: string, checkpointId: string | null, type: string, detail: Record<string, unknown>) {
   await manager.save(EventEntity, { id: randomUUID(), projectId, checkpointId, type, detail });
 }
-export async function saveCheckpoint(manager: EntityManager, projectId: string, draft: CheckpointDraft) {
+export async function saveCheckpoint(manager: EntityManager, projectId: string, draft: CheckpointDraft, provenance?: { proposalId: string; conversationId: string; messageId: string }) {
   const existing = await manager.findOneBy(CheckpointEntity, { projectId, key: draft.key });
   const duplicate = await manager.getRepository(CheckpointEntity).createQueryBuilder("c").where('c."projectId" = :projectId AND lower(c.title) = lower(:title)', { projectId, title: draft.title }).getOne();
   if (duplicate && duplicate.key !== draft.key) throw new AppError(409, "This checkpoint already exists with a different key. Ask the advisor to update the existing checkpoint.");
@@ -27,7 +27,7 @@ export async function saveCheckpoint(manager: EntityManager, projectId: string, 
   await manager.update(TriggerEntity, { checkpointId: id, resolvedAt: IsNull() }, { resolvedAt: new Date() });
   for (const description of draft.reviewTriggers) await manager.insert(TriggerEntity, { id: randomUUID(), projectId, checkpointId: id, description, dueAt: null, resolvedAt: null });
   if (draft.reviewDate) await manager.insert(TriggerEntity, { id: randomUUID(), projectId, checkpointId: id, description: "Scheduled review", dueAt: new Date(`${draft.reviewDate}T00:00:00Z`), resolvedAt: null });
-  await audit(manager, projectId, id, existing ? "checkpoint_updated_and_reopened" : "checkpoint_created", { before: existing ?? null, after: draft });
+  await audit(manager, projectId, id, existing ? "checkpoint_updated_and_reopened" : "checkpoint_created", { before: existing ?? null, after: draft, ...provenance });
   return id;
 }
 export async function saveRelation(manager: EntityManager, projectId: string, draft: z.infer<typeof relationDraftSchema>) {

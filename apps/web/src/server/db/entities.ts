@@ -1,5 +1,5 @@
 import { EntitySchema } from "typeorm";
-import type { CheckpointDraft, CheckpointStatus, Question, Answer, Fact, Risk, RiskRelation, Operation, EvidenceReview } from "@/lib/contracts";
+import type { CheckpointDraft, CheckpointStatus, Question, Answer, Fact, Risk, RiskRelation, Operation, EvidenceReview, Exploration } from "@/lib/contracts";
 
 export interface GuestRow { id: string; expiresAt: Date; aiWindowStart: Date; aiRequests: number }
 export interface ProjectRow {
@@ -7,7 +7,7 @@ export interface ProjectRow {
   summary: string; pendingQuestion: Question | null; followup: Record<string, unknown> | null;
   operationId: string | null; lockedAt: Date | null; createdAt: Date; updatedAt: Date;
 }
-export interface ConversationRow { id: string; projectId: string; kind: "interview" | "followup" | "chat"; title: string; checkpointId: string | null; createdAt: Date }
+export interface ConversationRow { id: string; projectId: string; kind: "interview" | "followup" | "chat"; title: string; checkpointId: string | null; exploration: Exploration | null; createdAt: Date }
 export interface MessageRow { id: string; conversationId: string; role: "user" | "assistant"; content: string; createdAt: Date }
 export interface ResponseRow { id: string; projectId: string; conversationId: string; questionId: string; question: Question; answer: string; disposition: Answer["disposition"]; createdAt: Date }
 export interface CheckpointRow extends Omit<CheckpointDraft, "risk" | "domain" | "uncertainty" | "legalFlag"> { id: string; projectId: string; riskId: string; position: number; owner: string; status: CheckpointStatus; disposition: "active" | "deferred" | "risk_accepted" | "not_applicable"; dispositionReason: string; engineeringPrompt: string; completedAt: Date | null; createdAt: Date }
@@ -35,7 +35,7 @@ export const ProjectEntity = new EntitySchema<ProjectRow>({ name: "Project", tab
   createdAt: created, updatedAt: { type: "timestamptz", updateDate: true },
 } });
 export const ConversationEntity = new EntitySchema<ConversationRow>({ name: "Conversation", tableName: "conversations", columns: {
-  id: uuid, projectId: { type: "uuid" }, kind: { type: "varchar" }, title: { type: "text" }, checkpointId: { type: "uuid", nullable: true }, createdAt: created,
+  id: uuid, projectId: { type: "uuid" }, kind: { type: "varchar" }, title: { type: "text" }, checkpointId: { type: "uuid", nullable: true }, exploration: { type: "jsonb", nullable: true }, createdAt: created,
 } });
 export const MessageEntity = new EntitySchema<MessageRow>({ name: "Message", tableName: "messages", columns: {
   id: uuid, conversationId: { type: "uuid" }, role: { type: "varchar" }, content: { type: "text" }, createdAt: created,

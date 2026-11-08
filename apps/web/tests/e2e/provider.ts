@@ -1,7 +1,7 @@
 // A test-only OpenAI-compatible HTTP fixture. Production has no mock mode.
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
-import { assessment, question, profile, evidenceReview, engineeringPrompt, stripeImpact } from "../fixtures";
+import { assessment, question, profile, evidenceReview, engineeringPrompt, stripeImpact, explorationResponse } from "../fixtures";
 
 const interviewQuestions = [
   question,
@@ -25,6 +25,10 @@ createServer(async (req, res) => {
       : name === "engineering_prompt" ? { prompt: engineeringPrompt }
       : name === "evidence_review" ? evidenceReview
       : name === "change_impact" ? stripeImpact
+      : name === "risk_overlap" ? { existingKey: null, reason: "This fixture represents a distinct operational risk." }
+      : name === "exploration" ? context.thread.at(-1)?.content.includes("vendor lock-in")
+        ? { ...explorationResponse, answer: "Vendor lock-in is a legitimate missing concern. Reliability & Operations is the closest category for an exit and recovery plan; it does not capture every commercial constraint.", followup: "Which provider would be hardest to replace?", proposals: [], coverage: [] }
+        : explorationResponse
       : { answer: "Stripe adds payment events and subscription entitlements. I’ll propose focused checks for your review.", followup: null, materialChange: "Added Stripe subscriptions", proposals: [] };
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ id: `resp_${randomUUID()}`, object: "response", created_at: Math.floor(Date.now() / 1000), status: "completed", model: body.model, error: null, incomplete_details: null, output: [{ id: `msg_${randomUUID()}`, type: "message", status: "completed", role: "assistant", content: [{ type: "output_text", text: JSON.stringify(output), annotations: [] }] }] }));

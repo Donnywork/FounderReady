@@ -22,8 +22,8 @@ export const readabilityProject: ProjectDetail = {
   risks: drafts.map((draft, i) => ({ id: `risk-${i}`, key: draft.key, domain: draft.domain, title: draft.title, explanation: draft.risk, uncertainty: draft.uncertainty, legalFlag: draft.legalFlag })),
   relations: [{ id: "relation-0", fromRiskId: "risk-2", toRiskId: "risk-0", type: "depends_on" }],
   conversations: [
-    { id: "empty", kind: "chat", title: "Planning a safe beta for our first customers", checkpointId: null, createdAt, messages: [] },
-    { id: "history", kind: "chat", title: "Understanding customer data isolation before inviting the first fifty beta users", checkpointId: "checkpoint-0", createdAt, messages: [
+    { id: "empty", kind: "chat", title: "Planning a safe beta for our first customers", checkpointId: null, exploration: null, createdAt, messages: [] },
+    { id: "history", kind: "chat", title: "Understanding customer data isolation before inviting the first fifty beta users", checkpointId: "checkpoint-0", exploration: null, createdAt, messages: [
       { id: "message-0", conversationId: "history", role: "user", content: "What should I check before inviting customers?", createdAt },
       { id: "message-1", conversationId: "history", role: "assistant", content: `Start with customer data isolation. Ask your builder to verify that one customer cannot access another customer’s private messages.\n\n${longAction}\n\nKeep the test results with your checkpoint: ${longReference}`, createdAt },
     ] },

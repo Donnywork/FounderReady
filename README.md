@@ -42,6 +42,7 @@ Save and trigger a new production deployment. Production builds apply pending mi
 5. Paste redacted evidence and its source. **Review this evidence** produces a finding for every acceptance criterion. Try “Codex says done” to see what remains unproven. Review never automatically confirms completion; the founder must explicitly confirm or request more work.
 6. Create a **New conversation** and send **“I just added Stripe subscriptions.”** Review the proposed fact, checkpoint, and reopening changes. Before approval, shared project records stay as they were. Approve individual changes; the checklist and map update from the same records.
 7. Set a checkpoint review date, defer or accept a risk with a reason, and refresh. The project, evidence, threads, proposals, decisions, and history persist.
+8. In **Readiness map**, choose **Explore blind spots** or **Explore this area** under an empty domain. Discuss gaps beside the map on desktop, or in a full-page conversation on smaller screens. Challenge a suggestion or raise a concern such as vendor lock-in. Review the proposed risk and checkpoint, then choose **Add to Readiness Map**, **Keep discussing**, or **Dismiss**. Resume the thread from **Past conversations**.
 
 No seed command is required or provided. The normal database starts empty. Automated tests use explicitly labeled demo fixtures in `apps/web/tests/fixtures.ts`; they are never loaded by the normal product.
 
@@ -53,7 +54,9 @@ No seed command is required or provided. The normal database starts empty. Autom
 - Separate work status, criterion-level evidence assessments, and founder disposition. Planning, deferral, risk acceptance, and not-applicable decisions require reasons. Accepted/deferred risks never count as verified.
 - Copyable engineering tasks; original evidence with source/time; immutable reviews and events; manual confirmation; reopening without deleting past evidence or decisions.
 - Free-form chats that answer questions using shared facts and current risks. Reported changes receive targeted impact reviews. Every proposed operation has a before/after view, individual approval/rejection/deferral, and an audit record. Stale proposals cannot overwrite newer work.
-- Seven modular OpenAI workflows: next interview question, project profile, risk assessment, conversation response, engineering prompt, evidence review, and change impact. Server validation covers structured schemas, referenced resources, criterion coverage, and ownership.
+- Contextual exploration reuses chat persistence and proposals. Prompts include the current profile, risks, checkpoints, assessment coverage, recent conversations and proposal decisions. Coverage distinguishes unassessed areas, investigation in progress, explicit reviews with no current findings, and identified risks; it never counts as checkpoint verification. Profile or approved readiness changes invalidate earlier empty-area reviews.
+- **New conversation** reuses an existing empty chat in the same project and checkpoint context. Once a chat has messages, the action can start another thread. Exploration threads retain their separate scope and meaningful titles.
+- Modular OpenAI workflows cover interview questions, project profiles, risk assessment, conversation responses (including exploration), engineering prompts, evidence review, change impact, and a semantic overlap check before approving a new risk. Server validation covers structured schemas, referenced resources, criterion coverage, and ownership.
 
 ## Stack and storage
 
@@ -63,7 +66,7 @@ Next.js 16.4.5 App Router, React, TypeScript, Tailwind 4, local shadcn/ui primit
 apps/web/src/app/           Pages and API route handlers
 apps/web/src/components/    Interactive product views
 apps/web/src/lib/           Contracts, graph projection, priority/progress helpers
-apps/web/src/server/ai/     Seven AI workflows and prompt templates
+apps/web/src/server/ai/     AI workflows and prompt templates
 apps/web/src/server/db/     Entity schemas and versioned SQL migrations
 apps/web/src/server/projects.ts       Onboarding, profile, evidence and progress
 apps/web/src/server/conversations.ts  Threads, proposed operations and approval
@@ -93,7 +96,7 @@ Integration tests refuse databases without an `_test` suffix and truncate the te
 ## Assumptions and limits
 
 - One anonymous guest cookie owns many independent projects. It is random, HTTP-only, SameSite=Lax, valid for 180 days, and stored only as a SHA-256 hash. Clearing cookies, changing browsers, or expiry removes access; account recovery, collaboration, and login are outside this MVP.
-- A checkpoint owns one focused risk in this MVP. Stable project-scoped keys and unique constraints prevent duplicate creation; explicit updates retain IDs and reopen work. Exact-title duplicates are also rejected. Semantic deduplication still depends on the advisor reusing existing keys.
+- A checkpoint owns one focused risk in this MVP. Stable project-scoped keys and unique constraints prevent duplicate creation; explicit updates retain IDs and reopen work. New-risk approval checks normalized titles, risk descriptions and actions, then asks the advisor to check semantic overlap against the current map. Overlap requires an explicit update proposal instead of an automatic merge. If that model check fails, approval stays pending. Semantic matching is model-assisted, so its quality still depends on the configured model.
 - Profile approval retains unknowns and inferred provenance. Editing a fact does not automatically label it confirmed; change its provenance explicitly. Direct profile edits are founder actions; use a conversation for a targeted impact review after a material change.
 - The interview uses product-specific topic anchors to keep unknown answers from consuming all five questions. For AI products these cover user data, AI permissions, and API costs. The model adapts wording to the context and may finish early; this is not a checklist across every risk domain.
 - The model assigns priority using impact, exposure, stage, urgency, and dependencies. The dashboard orders by priority, then dependency blockers, then title for a stable tie-break. P0 means critical before beta unless explicitly accepted; a deferred P0 remains unresolved.

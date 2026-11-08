@@ -5,6 +5,7 @@ import { z } from "zod";
 import { MAX_QUESTIONS, priorityRank, type ProjectDetail, type ProjectSummary, type interviewActionSchema, type profileInputSchema, type updateCheckpointSchema, type evidenceInputSchema, type checkpointActionSchema } from "@/lib/contracts";
 import { advisor } from "./ai/advisor";
 import { interviewFocus } from "./ai/interview-focus";
+import { readinessCoverage } from "@/lib/coverage";
 import { AppError, type ApiContext, validId } from "./http";
 import { CheckpointEntity, ConversationEntity, EvidenceEntity, GuestEntity, MessageEntity, ProjectEntity, ResponseEntity, FactEntity, RiskEntity, RelationEntity, ReviewEntity, ProposalEntity, TriggerEntity, EventEntity, type ProjectRow } from "./db/entities";
 import { saveCheckpoint, saveRelation, audit, riskFields } from "./state";
@@ -98,6 +99,7 @@ export async function aiContext(ctx: ApiContext, id: string) {
   const project = await projectDetail(ctx, id);
   const responses = await ctx.db.getRepository(ResponseEntity).find({ where: { projectId: id }, order: { createdAt: "ASC" } });
   return { today: new Date().toISOString().slice(0, 10), description: project.description, summary: project.summary, facts: project.facts, risks: project.risks, relations: project.relations,
+    coverage: readinessCoverage(project),
     interview: responses.filter((r) => r.conversationId === project.conversations.find((c) => c.kind === "interview")?.id).map((r) => ({ question: r.question.text, answer: r.answer, disposition: r.disposition, topic: r.question.topic })),
     checkpoints: project.checkpoints.map((c) => ({ id: c.id, key: c.key, domain: c.domain, title: c.title, risk: c.risk, priority: c.priority, reasoning: c.reasoning, action: c.action, acceptanceCriteria: c.acceptanceCriteria, reviewTriggers: c.reviewTriggers, reviewDate: c.reviewDate, basis: c.basis, uncertainty: c.uncertainty, legalFlag: c.legalFlag, owner: c.owner, status: c.status, disposition: c.disposition, latestReview: c.reviews.at(-1) })),
     pendingProposals: project.proposals.filter((p) => p.state === "pending" || p.state === "deferred").map((p) => p.operation),

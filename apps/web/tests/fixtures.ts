@@ -1,6 +1,6 @@
 // Deterministic demo data used only by automated tests. Never loaded by the running product.
 import type { z } from "zod";
-import type { assessmentSchema, questionSchema, profileSchema, evidenceReviewSchema, impactSchema } from "@/lib/contracts";
+import type { assessmentSchema, questionSchema, profileSchema, evidenceReviewSchema, impactSchema, explorationResponseSchema } from "@/lib/contracts";
 
 export const demoDescription = "I built an AI customer-support chatbot using Lovable, Supabase, and OpenAI and want to invite my first 50 beta users.";
 export const question: z.infer<typeof questionSchema> = { text: "What private customer information can the chatbot access?", explanation: "Customer messages may contain personal information. We need to know what could be exposed.", suggestions: ["Public help articles only", "Private customer messages", "Both public and private data"] };
@@ -33,4 +33,16 @@ export const stripeImpact: z.infer<typeof impactSchema> = {
     { rationale: "Payment events must change access only after trusted processing.", operation: { type: "create_checkpoint", checkpoint: { ...assessment.checkpoints[0], key: "stripe-webhook-entitlements", domain: "reliability", title: "Verify Stripe subscription events", risk: "Forged or repeated payment events could grant the wrong subscription access or leave a paying customer locked out.", action: "Verify signatures, deduplicate webhooks, and test subscription state transitions.", acceptanceCriteria: ["Forged webhook signatures are rejected and replayed events do not duplicate entitlements.", "Payment failure and cancellation remove access according to the documented policy."], reviewTriggers: ["Stripe events, prices, or subscription entitlement rules change."], legalFlag: null } } },
     { rationale: "Subscriptions change how AI allowances should be enforced.", operation: { type: "reopen_checkpoint", key: "ai-spend-limits", reason: "Test per-plan model allowances after adding Stripe subscriptions." } },
   ],
+};
+
+export const explorationResponse: z.infer<typeof explorationResponseSchema> = {
+  answer: "Let’s look for what your current assessment might be missing. Your support chatbot depends on OpenAI and Supabase; an upstream outage could leave your first 50 users without support. This is a potential risk to investigate, not a confirmed failure.",
+  followup: "What should customers see when your AI provider is unavailable?", materialChange: null,
+  coverage: [{ domain: "reliability", outcome: "exploring", summary: "Provider failure behavior and recovery have not yet been established." }],
+  proposals: [{ rationale: "Your current map does not cover a provider outage interrupting customer support.", operation: { type: "create_checkpoint", checkpoint: {
+    key: "provider-outage-recovery", domain: "reliability", title: "Validate provider outage recovery", priority: "P1", basis: "unknown",
+    risk: "An upstream provider outage could leave customers waiting for support without a useful fallback.", reasoning: "Your first beta customers may depend on answers while provider failure behavior remains unknown.",
+    action: "Simulate an unavailable AI provider and validate customer messaging and recovery.", acceptanceCriteria: ["Provider timeouts show a useful fallback message without losing the customer question.", "Service recovers without duplicate responses after the provider returns."],
+    reviewTriggers: ["Provider dependencies or fallback behavior change."], reviewDate: null, uncertainty: "Timeouts, retries and customer fallback behavior have not been demonstrated.", legalFlag: null,
+  } } }],
 };

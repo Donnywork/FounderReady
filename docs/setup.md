@@ -32,6 +32,8 @@ Open http://localhost:3000. `pnpm docker:ps` shows the database state; `pnpm doc
 
 Apply migrations before starting an upgraded app. Migrations preserve existing data and disable schema synchronization. The original follow-up endpoint was replaced by the conversations/proposals endpoints; historical follow-up messages remain accessible. Imported projects get a profile with explicit unknowns. Legacy checkpoints retain evidence and confirmations, with migration events and a domain classification marked for review.
 
+Contextual Readiness Map exploration adds a nullable `conversations.exploration` column in migration `1794500000000-ContextualExploration`; existing chats remain ordinary conversations. Apply it with `pnpm db:migrate` before running this version. Coverage reviews and accepted-discovery provenance use the existing immutable event history. Approving a new risk may make one additional AI request to check semantic overlap; an unavailable provider leaves the proposal pending for retry.
+
 ## Deploy on Vercel (Neon)
 
 Vercel runs the Next.js app and connects to hosted PostgreSQL. The Compose database and its `localhost:54329` URL are for local development.

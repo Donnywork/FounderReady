@@ -3,6 +3,8 @@ import { z } from "zod";
 export const MAX_QUESTIONS = 5;
 export const domains = { security: "Security & Privacy", reliability: "Reliability & Operations", ai: "AI-Specific Risks", cost: "Cost & Scalability" } as const;
 export const domainSchema = z.enum(["security", "reliability", "ai", "cost"]);
+export const explorationSchema = z.object({ domain: domainSchema.nullable() }).strict();
+export const coverageReviewSchema = z.object({ domain: domainSchema, outcome: z.enum(["exploring", "assessed_no_risks"]), summary: z.string().min(10).max(1000) });
 export const prioritySchema = z.enum(["P0", "P1", "P2"]);
 export const statusSchema = z.enum(["unknown", "needs_action", "planned", "implemented_unverified", "evidence_reviewed", "founder_confirmed"]);
 export const dispositionSchema = z.enum(["active", "deferred", "risk_accepted", "not_applicable"]);
@@ -29,6 +31,8 @@ export const operationSchema = z.discriminatedUnion("type", [
 ]);
 export const proposalDraftSchema = z.object({ rationale: z.string().min(5).max(1000), operation: operationSchema });
 export const conversationResponseSchema = z.object({ answer: z.string().min(1).max(6000), followup: z.string().max(700).nullable(), materialChange: z.string().max(2000).nullable(), proposals: z.array(proposalDraftSchema).max(6) });
+export const explorationResponseSchema = conversationResponseSchema.extend({ coverage: z.array(coverageReviewSchema).max(4) });
+export const riskOverlapSchema = z.object({ existingKey: stableKey.nullable(), reason: z.string().min(5).max(1000) });
 export const impactSchema = z.object({ summary: z.string().min(10).max(1600), proposals: z.array(proposalDraftSchema).max(8) });
 export const engineeringPromptSchema = z.object({ prompt: z.string().min(100).max(10000) });
 export const evidenceReviewSchema = z.object({ summary: z.string().min(10).max(1600), findings: z.array(z.object({ criterionIndex: z.number().int().min(0).max(5), assessment: z.enum(["supported", "unsupported", "unclear"]), explanation: z.string().min(5).max(1000) })).min(2).max(6), followupChecks: z.array(z.string().min(5).max(700)).max(6) });
@@ -43,7 +47,7 @@ export const updateCheckpointSchema = z.object({
   .refine((v) => !(v.disposition && v.disposition !== "active" || v.status === "planned") || v.reason.length >= 5, { message: "Record a reason for planning, deferring, accepting a risk, or marking it not applicable." });
 export const evidenceInputSchema = z.object({ content: z.string().trim().min(10).max(10000), source: z.string().trim().min(2).max(300) }).strict();
 export const conversationInputSchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("create"), checkpointId: z.uuid().nullable().default(null) }).strict(),
+  z.object({ action: z.literal("create"), checkpointId: z.uuid().nullable().default(null), exploration: explorationSchema.nullable().default(null) }).strict().refine((v) => !v.exploration || !v.checkpointId, { message: "Choose a readiness area or a checkpoint, not both." }),
   z.object({ action: z.literal("send"), conversationId: z.uuid(), content: z.string().trim().min(1).max(4000) }).strict(),
   z.object({ action: z.literal("retry"), conversationId: z.uuid() }).strict(),
 ]);
@@ -51,6 +55,8 @@ export const proposalDecisionSchema = z.object({ decision: z.enum(["approved", "
 export const checkpointActionSchema = z.discriminatedUnion("action", [z.object({ action: z.literal("prompt") }).strict(), z.object({ action: z.literal("review"), evidenceId: z.uuid() }).strict()]);
 
 export type Question = z.infer<typeof questionSchema> & { id: string; topic?: string };
+export type Domain = z.infer<typeof domainSchema>;
+export type Exploration = z.infer<typeof explorationSchema>;
 export type Answer = z.infer<typeof answerSchema>;
 export type Fact = z.infer<typeof factSchema> & { id: string; confirmedAt: string | null };
 export type CheckpointDraft = z.infer<typeof checkpointDraftSchema>;
@@ -65,7 +71,7 @@ export type Risk = { id: string; key: string; domain: z.infer<typeof domainSchem
 export type RiskRelation = { id: string; fromRiskId: string; toRiskId: string; type: "depends_on" | "related_to" };
 export type ChangeProposal = { id: string; conversationId: string; messageId: string; rationale: string; operation: Operation; before: unknown; state: "pending" | "approved" | "rejected" | "deferred"; decisionReason: string; createdAt: string; decidedAt: string | null };
 export type Message = { id: string; conversationId: string; role: "user" | "assistant"; content: string; createdAt: string };
-export type Conversation = { id: string; kind: "interview" | "followup" | "chat"; title: string; checkpointId: string | null; createdAt: string; messages: Message[] };
+export type Conversation = { id: string; kind: "interview" | "followup" | "chat"; title: string; checkpointId: string | null; exploration: Exploration | null; createdAt: string; messages: Message[] };
 export type ProjectSummary = { id: string; title: string; description: string; phase: "interview" | "profile" | "workspace"; updatedAt: string };
 export type ProjectDetail = ProjectSummary & { summary: string; pendingQuestion: Question | null; answeredCount: number; facts: Fact[]; checkpoints: Checkpoint[]; risks: Risk[]; relations: RiskRelation[]; conversations: Conversation[]; proposals: ChangeProposal[]; events: CheckpointEvent[] };
 

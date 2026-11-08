@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Check, Copy, MessageSquare } from "lucide-react";
-import { statusLabels, dispositionLabels, type Checkpoint, type CheckpointStatus } from "@/lib/contracts";
+import { statusLabels, dispositionLabels, type Checkpoint, type CheckpointStatus, type Conversation } from "@/lib/contracts";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -9,13 +9,13 @@ import { Status } from "./ui/checkpoint-status";
 import { PriorityBadge } from "./ui/priority-badge";
 
 export type Mutate = (path: string, body: unknown, method?: string) => Promise<boolean>;
-export function CheckpointPanel({ checkpoint: c, busy, mutate, chat }: { checkpoint: Checkpoint; busy: boolean; mutate: Mutate; chat: () => void }) {
+export function CheckpointPanel({ checkpoint: c, busy, mutate, chat, supportingConversation }: { checkpoint: Checkpoint; busy: boolean; mutate: Mutate; chat: () => void; supportingConversation?: Conversation }) {
   const [owner, setOwner] = useState(c.owner); const [status, setStatus] = useState(c.status); const [disposition, setDisposition] = useState(c.disposition);
   const [reason, setReason] = useState(""); const [confirmed, setConfirmed] = useState(false); const [content, setContent] = useState(""); const [source, setSource] = useState("");
   const [reviewDate, setReviewDate] = useState(c.reviewDate ?? ""); const [copied, setCopied] = useState(false); const [copyError, setCopyError] = useState(false);
   const path = `/checkpoints/${c.id}`;
   return <section className="space-y-8">
-    <div><div className="flex flex-wrap items-center gap-3"><PriorityBadge priority={c.priority} /><Status checkpoint={c} /></div><h1 className="page-title mt-4">{c.title}</h1><Button variant="link" className="mt-3 px-0" disabled={busy} onClick={chat}><MessageSquare />Discuss this checkpoint</Button></div>
+    <div><div className="flex flex-wrap items-center gap-3"><PriorityBadge priority={c.priority} /><Status checkpoint={c} /></div><h1 className="page-title mt-4">{c.title}</h1><div className="mt-3 flex flex-wrap gap-x-5 gap-y-2"><Button variant="link" className="px-0" disabled={busy} onClick={chat}><MessageSquare />Discuss this checkpoint</Button>{supportingConversation && <Button asChild variant="link" className="px-0"><a href={`#${supportingConversation.exploration ? "explore" : "chat"}-${supportingConversation.id}`}>View supporting conversation</a></Button>}</div></div>
     <section><h2 className="section-title">Why it matters</h2><p className="mt-3 text-body">{c.risk}</p><p className="mt-3 text-body text-muted-foreground">{c.reasoning}</p><p className="mt-3 text-support text-muted-foreground">{c.basis === "reported" ? "Based on founder-reported information." : "Implementation is unknown."} {c.uncertainty}</p>{c.legalFlag && <p className="mt-3 text-body text-warning">For qualified legal review: {c.legalFlag}</p>}</section>
     <section><h2 className="section-title">What to do</h2><p className="mt-3 text-body">{c.action}</p></section>
     <section><h2 className="section-title">Acceptance criteria</h2><ol className="mt-3 list-decimal space-y-3 pl-6 text-body">{c.acceptanceCriteria.map((criterion, i) => <li key={i}>{criterion}</li>)}</ol></section>

@@ -3,6 +3,7 @@ import { loadRootEnv } from "../env.cjs";
 import type { DataSource } from "typeorm";
 import { readiness, type ProjectDetail } from "@/lib/contracts";
 import { readinessGraph } from "@/lib/graph";
+import { readinessCoverage } from "@/lib/coverage";
 import { makeDataSource } from "@/server/db/data-source";
 import { advisor } from "@/server/ai/advisor";
 import { AppError } from "@/server/http";
@@ -16,7 +17,7 @@ import { POST as decide } from "@/app/api/projects/[id]/proposals/[proposalId]/r
 import { PATCH as update } from "@/app/api/projects/[id]/checkpoints/[checkpointId]/route";
 import { POST as evidence } from "@/app/api/projects/[id]/checkpoints/[checkpointId]/evidence/route";
 import { POST as action } from "@/app/api/projects/[id]/checkpoints/[checkpointId]/actions/route";
-import { assessment, question, profile, evidenceReview, stripeImpact, engineeringPrompt, demoDescription } from "./fixtures";
+import { assessment, question, profile, evidenceReview, stripeImpact, engineeringPrompt, demoDescription, explorationResponse } from "./fixtures";
 
 loadRootEnv();
 const url = process.env.TEST_DATABASE_URL;
@@ -69,6 +70,7 @@ describe.skipIf(!url)("API routes with PostgreSQL and a deterministic advisor", 
     vi.spyOn(advisor, "reviewEvidence").mockResolvedValue(evidenceReview);
     vi.spyOn(advisor, "respondToConversation").mockResolvedValue({ answer: "Stripe adds payment state and access rules. I’ll propose focused checks for your review.", followup: null, materialChange: "Added Stripe subscriptions", proposals: [] });
     vi.spyOn(advisor, "analyzeChangeImpact").mockResolvedValue(stripeImpact);
+    vi.spyOn(advisor, "checkRiskOverlap").mockResolvedValue({ existingKey: null, reason: "This is a distinct failure mode." });
   });
   afterAll(async () => { vi.restoreAllMocks(); globalDb.founderReadyDb = undefined; if (db?.isInitialized) await db.destroy(); });
 
@@ -210,5 +212,132 @@ describe.skipIf(!url)("API routes with PostgreSQL and a deterministic advisor", 
     expect(approved.checkpoints).toHaveLength(3); expect(approved.risks).toHaveLength(3);
     expect(approved.checkpoints[0]).toMatchObject({ id: cp.id, riskId: cp.riskId, status: "needs_action" });
     expect(approved.checkpoints[0].acceptanceCriteria).toHaveLength(3);
+  });
+  it("reuses empty chats by project and checkpoint and returns the actual reused ID", async () => {
+    const { id, cookie, project } = await workspace();
+    const createChat = async (checkpointId: string | null = null) => {
+      const response = await chat(req(cookie, { action: "create", checkpointId }), params(id));
+      expect(response.status).toBe(200);
+      return response.json() as Promise<ProjectDetail & { conversationId: string }>;
+    };
+    const first = await createChat();
+    const scoped = await createChat(project.checkpoints[0].id);
+    expect(scoped.conversationId).not.toBe(first.conversationId);
+    expect((await createChat()).conversationId).toBe(first.conversationId);
+    expect((await createChat(project.checkpoints[0].id)).conversationId).toBe(scoped.conversationId);
+    expect((await createChat()).conversations).toHaveLength(3);
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ answer: "Let’s discuss the question.", followup: null, materialChange: null, proposals: [] });
+    await body(await chat(req(cookie, { action: "send", conversationId: first.conversationId, content: "Can we discuss failures?" }), params(id)));
+    const next = await createChat();
+    expect(next.conversationId).not.toBe(first.conversationId);
+    expect((await createChat()).conversationId).toBe(next.conversationId);
+    const other = await workspace();
+    const otherChat = await body(await chat(req(other.cookie, { action: "create" }), params(other.id)));
+    expect(otherChat.conversations.some((c) => c.id === next.conversationId)).toBe(false);
+  });
+  it("persists scoped exploration, retries its opening message, and includes current project and conversation context", async () => {
+    const { id, cookie, project } = await workspace();
+    await stripeChat(id, cookie);
+    const created = await body(await chat(req(cookie, { action: "create", exploration: { domain: "reliability" } }), params(id)));
+    const conversation = created.conversations.at(-1)!;
+    expect(conversation).toMatchObject({ title: "Exploring reliability risks", exploration: { domain: "reliability" }, checkpointId: null });
+    expect(conversation.messages).toHaveLength(1);
+    expect(created.checkpoints).toEqual(project.checkpoints);
+    vi.mocked(advisor.respondToConversation).mockRejectedValueOnce(new AppError(502, "Provider unavailable"));
+    expect((await chat(req(cookie, { action: "retry", conversationId: conversation.id }), params(id))).status).toBe(502);
+    vi.mocked(advisor.respondToConversation).mockResolvedValue(explorationResponse);
+    const replied = await body(await chat(req(cookie, { action: "retry", conversationId: conversation.id }), params(id)));
+    expect(replied.conversations.at(-1)!.messages).toHaveLength(2);
+    expect(advisor.respondToConversation).toHaveBeenLastCalledWith(expect.objectContaining({
+      exploration: { domain: "reliability" }, summary: profile.summary, facts: expect.arrayContaining([expect.objectContaining({ key: "users-scale" })]),
+      checkpoints: expect.arrayContaining([expect.objectContaining({ key: "ai-spend-limits" })]),
+      coverage: expect.arrayContaining([expect.objectContaining({ domain: "reliability", status: "exploring" })]),
+      recentConversations: expect.arrayContaining([expect.objectContaining({ messages: expect.arrayContaining([expect.objectContaining({ content: "I just added Stripe subscriptions." })]) })]),
+    }), true);
+    await db.destroy(); db = await makeDataSource(url).initialize(); globalDb.founderReadyDb = Promise.resolve(db);
+    const restored = await body(await detail(req(cookie), params(id)));
+    expect(restored.conversations.at(-1)).toEqual(replied.conversations.at(-1));
+    expect(restored.checkpoints).toEqual(project.checkpoints);
+    expect((await chat(req(cookie, { action: "create", exploration: { domain: "invented" } }), params(id))).status).toBe(400);
+    expect((await chat(req(cookie, { action: "create", checkpointId: project.checkpoints[0].id, exploration: { domain: "reliability" } }), params(id))).status).toBe(400);
+  });
+  it("approves discovered risks with provenance and no verification, while dismissal leaves readiness unchanged", async () => {
+    const { id, cookie, project } = await workspace();
+    const created = await body(await chat(req(cookie, { action: "create", exploration: { domain: null } }), params(id)));
+    const conversationId = created.conversations.at(-1)!.id;
+    vi.mocked(advisor.respondToConversation).mockResolvedValue(explorationResponse);
+    const proposed = await body(await chat(req(cookie, { action: "retry", conversationId }), params(id)));
+    expect(proposed.checkpoints).toEqual(project.checkpoints);
+    expect(proposed.facts).toEqual(project.facts);
+    const proposal = proposed.proposals[0];
+    vi.mocked(advisor.checkRiskOverlap).mockRejectedValueOnce(new AppError(502, "Overlap check unavailable"));
+    expect((await decide(req(cookie, { decision: "approved" }), propParams(id, proposal.id))).status).toBe(502);
+    expect((await body(await detail(req(cookie), params(id)))).proposals[0].state).toBe("pending");
+    const approved = await body(await decide(req(cookie, { decision: "approved" }), propParams(id, proposal.id)));
+    const added = approved.checkpoints.find((c) => c.key === "provider-outage-recovery")!;
+    expect(added).toMatchObject({ status: "needs_action", completedAt: null, domain: "reliability", evidence: [] });
+    expect(added.events[0].detail).toMatchObject({ conversationId, messageId: proposal.messageId, proposalId: proposal.id });
+    expect(readiness(approved.checkpoints)).toMatchObject({ total: 4, complete: 0 });
+    expect(readinessGraph(approved).riskNodes).toHaveLength(4);
+    await body(await decide(req(cookie, { decision: "approved" }), propParams(id, proposal.id)));
+    expect(advisor.checkRiskOverlap).toHaveBeenCalledTimes(2);
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ ...explorationResponse, proposals: [stripeImpact.proposals[1]] });
+    const more = await body(await chat(req(cookie, { action: "send", conversationId, content: "What about vendor lock-in? None of the categories mention it." }), params(id)));
+    expect(advisor.respondToConversation).toHaveBeenLastCalledWith(expect.objectContaining({ thread: expect.arrayContaining([expect.objectContaining({ content: "What about vendor lock-in? None of the categories mention it." })]) }), true);
+    const dismissed = await body(await decide(req(cookie, { decision: "rejected" }), propParams(id, more.proposals.at(-1)!.id)));
+    expect(dismissed.checkpoints).toEqual(approved.checkpoints);
+    expect(dismissed.risks).toEqual(approved.risks);
+    expect(dismissed.facts).toEqual(approved.facts);
+  });
+  it("blocks semantic duplicates with different keys and requires a reviewed update", async () => {
+    const { id, cookie, project } = await workspace();
+    const original = assessment.checkpoints[1];
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ answer: "Review this potential cost risk.", followup: null, materialChange: null, proposals: [{ rationale: "An alternate description of the same spending exposure.", operation: { type: "create_checkpoint", checkpoint: { ...original, key: "unbounded-api-charges", title: "Control runaway generation charges", risk: "Customers could drive model costs beyond the beta budget through unrestricted calls.", action: "Enforce customer quotas and confirm budget notifications arrive." } } }] });
+    const proposed = await stripeChat(id, cookie);
+    vi.mocked(advisor.checkRiskOverlap).mockResolvedValue({ existingKey: original.key, reason: "The same per-customer spending exposure is already tracked." });
+    const rejected = await decide(req(cookie, { decision: "approved" }), propParams(id, proposed.proposals[0].id));
+    expect(rejected.status).toBe(409);
+    expect((await rejected.json()).error).toContain(original.title);
+    expect((await body(await detail(req(cookie), params(id)))).checkpoints).toEqual(project.checkpoints);
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ answer: "Review an update instead.", followup: null, materialChange: null, proposals: [{ rationale: "Extend the existing spending checkpoint.", operation: { type: "create_checkpoint", checkpoint: { ...original, acceptanceCriteria: [...original.acceptanceCriteria, "Concurrent requests cannot bypass the allowance."] } } }] });
+    const updatedProposal = await stripeChat(id, cookie);
+    expect(updatedProposal.proposals.at(-1)!.operation.type).toBe("update_checkpoint");
+    const updated = await body(await decide(req(cookie, { decision: "approved" }), propParams(id, updatedProposal.proposals.at(-1)!.id)));
+    expect(updated.checkpoints).toHaveLength(3);
+    expect(updated.checkpoints.find((c) => c.key === original.key)?.acceptanceCriteria).toHaveLength(3);
+  });
+  it("records explicit no-risk coverage without inferring safety and invalidates it after profile changes", async () => {
+    const { id, cookie } = await workspace();
+    const created = await body(await chat(req(cookie, { action: "create", exploration: { domain: "reliability" } }), params(id)));
+    expect(readinessCoverage(created).find((a) => a.domain === "reliability")?.status).toBe("not_assessed");
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ ...explorationResponse, proposals: [], coverage: [{ domain: "reliability", outcome: "assessed_no_risks", summary: "The described fallback covers the current limited pilot; broader operations remain outside this review." }] });
+    const reviewed = await body(await chat(req(cookie, { action: "retry", conversationId: created.conversations.at(-1)!.id }), params(id)));
+    expect(readinessCoverage(reviewed).find((a) => a.domain === "reliability")?.status).toBe("assessed_no_risks");
+    expect(readiness(reviewed.checkpoints).complete).toBe(0);
+    const changed = await body(await profileUpdate(req(cookie, { ...profile, summary: "The product now runs a larger pilot with additional operational dependencies.", approve: false }), params(id)));
+    expect(readinessCoverage(changed).find((a) => a.domain === "reliability")?.status).toBe("not_assessed");
+  });
+  it("routes changed assumptions from exploration through the existing impact review", async () => {
+    const { id, cookie, project } = await workspace();
+    const created = await body(await chat(req(cookie, { action: "create", exploration: { domain: null } }), params(id)));
+    const conversationId = created.conversations.at(-1)!.id;
+    const proposed = await body(await chat(req(cookie, { action: "retry", conversationId }), params(id)));
+    expect(advisor.analyzeChangeImpact).toHaveBeenCalledWith(expect.objectContaining({ exploration: { domain: null }, reportedChange: "Added Stripe subscriptions" }));
+    expect(proposed.facts).toEqual(project.facts);
+    expect(proposed.checkpoints).toEqual(project.checkpoints);
+    expect(proposed.proposals.map((p) => p.operation)).toEqual(stripeImpact.proposals.map((p) => p.operation));
+    expect(proposed.proposals.every((p) => p.conversationId === conversationId && p.state === "pending")).toBe(true);
+  });
+  it("rolls back contradictory coverage and proposal output while retaining the saved message", async () => {
+    const { id, cookie, project } = await workspace();
+    const created = await body(await chat(req(cookie, { action: "create", exploration: { domain: "reliability" } }), params(id)));
+    const conversationId = created.conversations.at(-1)!.id;
+    vi.mocked(advisor.respondToConversation).mockResolvedValue({ ...explorationResponse, coverage: [{ domain: "reliability", outcome: "assessed_no_risks", summary: "No current risks, despite a contradictory proposal in this response." }] });
+    expect((await chat(req(cookie, { action: "retry", conversationId }), params(id))).status).toBe(502);
+    const saved = await body(await detail(req(cookie), params(id)));
+    expect(saved.proposals).toHaveLength(0);
+    expect(saved.checkpoints).toEqual(project.checkpoints);
+    expect(saved.conversations.at(-1)!.messages).toHaveLength(1);
+    expect(readinessCoverage(saved).find((a) => a.domain === "reliability")?.status).toBe("not_assessed");
   });
 });

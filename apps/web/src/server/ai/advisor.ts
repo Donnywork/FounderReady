@@ -2,9 +2,9 @@ import "server-only";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
-import { assessmentSchema, nextQuestionSchema, profileSchema, conversationResponseSchema, impactSchema, engineeringPromptSchema, evidenceReviewSchema } from "@/lib/contracts";
+import { assessmentSchema, nextQuestionSchema, profileSchema, conversationResponseSchema, explorationResponseSchema, riskOverlapSchema, impactSchema, engineeringPromptSchema, evidenceReviewSchema } from "@/lib/contracts";
 import { AppError } from "@/server/http";
-import { advisorInstructions, assessmentInstructions, interviewInstructions, profileInstructions, conversationInstructions, impactInstructions, engineeringInstructions, evidenceInstructions } from "./prompts";
+import { advisorInstructions, assessmentInstructions, interviewInstructions, profileInstructions, conversationInstructions, explorationInstructions, riskOverlapInstructions, impactInstructions, engineeringInstructions, evidenceInstructions } from "./prompts";
 
 const reasoningEffortSchema = z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]);
 
@@ -44,7 +44,10 @@ export const advisor = {
   nextInterviewQuestion: (context: unknown) => generate(nextQuestionSchema, "interview_question", interviewInstructions, context),
   proposeProjectProfile: (context: unknown) => generate(profileSchema, "project_profile", profileInstructions, context),
   assessRisks: (context: unknown) => generate(assessmentSchema, "assessment", assessmentInstructions, context),
-  respondToConversation: (context: unknown) => generate(conversationResponseSchema, "conversation", conversationInstructions, context),
+  respondToConversation: (context: unknown, exploration = false): Promise<z.infer<typeof conversationResponseSchema> & { coverage?: z.infer<typeof explorationResponseSchema>["coverage"] }> => exploration
+    ? generate(explorationResponseSchema, "exploration", `${conversationInstructions}\n\n${explorationInstructions}`, context)
+    : generate(conversationResponseSchema, "conversation", conversationInstructions, context),
+  checkRiskOverlap: (context: unknown) => generate(riskOverlapSchema, "risk_overlap", riskOverlapInstructions, context),
   analyzeChangeImpact: (context: unknown) => generate(impactSchema, "change_impact", impactInstructions, context),
   generateEngineeringPrompt: (context: unknown) => generate(engineeringPromptSchema, "engineering_prompt", engineeringInstructions, context),
   reviewEvidence: (context: unknown) => generate(evidenceReviewSchema, "evidence_review", evidenceInstructions, context),
