@@ -1,0 +1,17 @@
+import type { z } from "zod";
+import type { assessmentSchema, questionSchema } from "@/lib/contracts";
+
+export const question: z.infer<typeof questionSchema> = {
+  text: "What kind of information will your users share?",
+  explanation: "Private information needs controls that keep one customer's data separate from another's.",
+  suggestions: ["Public information only", "Private customer documents", "A mix of both"],
+};
+export const assessment: z.infer<typeof assessmentSchema> = {
+  title: "Customer document assistant",
+  summary: "You are preparing a document assistant for your first customers. Data access controls, usage limits, and recovery are still unknown and should be checked before inviting users.",
+  checkpoints: [
+    { title: "Keep customer documents separate", priority: "high", risk: "If document retrieval is not scoped to the signed-in customer, private information could be shared with someone else.", reasoning: "The product handles customer documents, and account isolation has not yet been tested.", action: "Have your builder check document access for two different customer accounts.", acceptanceCriteria: ["A customer cannot retrieve another customer's document by changing its identifier.", "Retrieval tests cover two separate customer accounts."], engineeringPrompt: "Inspect the current authentication and document retrieval implementation. Verify that every read and search is scoped to the current customer. Add targeted tests using two customers, including a modified document identifier. Return the test results and the relevant code references; do not assume any existing safeguard works without checking it.", reviewTriggers: ["A new document source or sharing feature is added."], basis: "unknown" },
+    { title: "Put limits on AI spending", priority: "high", risk: "Unrestricted generation could create an unexpected bill if traffic increases or someone automates requests.", reasoning: "AI calls have a variable cost, and existing spending limits are unknown.", action: "Set per-customer usage limits and an alert on provider spending.", acceptanceCriteria: ["A customer exceeding their allowance receives a clear limit message.", "A test confirms that a spending alert reaches the owner."], engineeringPrompt: "Inspect the AI request path and billing configuration. Add per-customer usage limits and spending alerts appropriate to the existing architecture. Test the limit behavior and record the alert delivery result. Return evidence and document any remaining uncertainties.", reviewTriggers: ["Model pricing or expected traffic changes."], basis: "unknown" },
+    { title: "Practice restoring a backup", priority: "medium", risk: "If data is lost, an untested backup may not restore the customer information you need.", reasoning: "Recovery is important before real customer data is stored, but the backup process is unknown.", action: "Restore a database backup into an isolated environment and record the result.", acceptanceCriteria: ["A recent backup is restored successfully in a separate environment.", "The recovery procedure names an owner and records the time required."], engineeringPrompt: "Inspect the database backup setup. Restore a recent backup to an isolated test database, validate the expected records, and document the restore steps and elapsed time. Do not overwrite production data. Provide evidence of the restore and name the recovery owner.", reviewTriggers: ["The database provider or schema changes significantly."], basis: "unknown" },
+  ],
+};
