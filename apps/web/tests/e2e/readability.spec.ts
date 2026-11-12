@@ -54,14 +54,17 @@ for (const width of [1440, 375]) {
       if (view === "map") {
         const domain = page.getByRole("button", { name: /Security & Privacy/ });
         await expect(domain).toContainText("1 open P0");
-        await expect(domain).toHaveAttribute("aria-expanded", "false");
-        await checkPage(page, testInfo, "map-collapsed");
-        for (const label of ["Security & Privacy", "Reliability & Operations", "AI-Specific Risks", "Cost & Scalability"]) await page.getByRole("button", { name: new RegExp(label) }).click();
+        await expect(domain).toHaveAttribute("aria-expanded", "true");
         await expect(page.getByRole("button", { name: `Checkpoint: ${longAction}`, exact: true })).toBeVisible();
         for (const label of ["P0 · Critical", "P1 · Important", "P2 · Can wait", "Needs action", "Unknown", "Planned", "Founder-confirmed"]) await expect(page.getByText(label, { exact: true }).first()).toBeVisible();
         const badge = page.getByText("P0 · Critical", { exact: true }).first();
         await expect(badge).toHaveCSS("font-size", "14px");
         await expect(badge).toHaveCSS("font-weight", "600");
+        await page.getByRole("button", { name: "Collapse all areas", exact: true }).click();
+        await expect(domain).toHaveAttribute("aria-expanded", "false");
+        await checkPage(page, testInfo, "map-collapsed");
+        await page.getByRole("button", { name: "Expand all areas", exact: true }).click();
+        await expect(domain).toHaveAttribute("aria-expanded", "true");
       }
       if (view === "chat-history") await expect(page.getByText(longReference, { exact: false })).toBeVisible();
       if (view === "checkpoint-checkpoint-0") await page.getByText("Read engineering prompt", { exact: true }).click();
@@ -132,6 +135,8 @@ for (const width of [1440, 375]) {
     const domain = page.getByRole("button", { name: /Security & Privacy/ });
     await domain.focus();
     await page.keyboard.press("Space");
+    await expect(domain).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Space");
     await expect(domain).toHaveAttribute("aria-expanded", "true");
     await page.keyboard.press("Tab");
     const risk = page.getByRole("button", { name: /Risk P0 · Critical Keep customer data separate/ });
@@ -139,11 +144,13 @@ for (const width of [1440, 375]) {
     await expect(risk).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Enter");
     await expect(risk).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#domain-security").getByRole("complementary", { name: "Selected risk" })).toBeVisible();
     await page.keyboard.press("Tab");
     const checkpoint = page.getByRole("button", { name: `Checkpoint: ${longAction}`, exact: true });
     await expect(checkpoint).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "Keep customer data separate", exact: true })).toBeVisible();
+    await expect(page.locator("main").getByRole("button", { name: "Readiness map", exact: true })).toBeVisible();
 
     const tokens = await page.evaluate(() => {
       const style = getComputedStyle(document.documentElement);

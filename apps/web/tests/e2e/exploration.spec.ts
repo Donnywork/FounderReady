@@ -49,7 +49,6 @@ for (const width of [1440, 375]) {
     await expect(panel).toBeHidden();
     // The original empty-state action disappears after approval; focus returns to the header action.
     await expect(page.getByRole("button", { name: "Explore blind spots" })).toBeFocused();
-    await page.getByRole("button", { name: /^Reliability & Operations/ }).click();
     await expect(page.getByRole("button", { name: /Risk P1 · Important Validate provider outage recovery/ })).toBeVisible();
     await navigate(page, "Checklist");
     await expect(page.getByText("0 of 4", { exact: true })).toBeVisible();

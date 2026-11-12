@@ -19,9 +19,8 @@ test("full founder workflow: profile, map, evidence, confirmation, and approved 
   await expect(page.getByRole("heading", { name: "Your next steps" })).toBeVisible();
   await expect(page.getByText("0 of 3", { exact: true })).toBeVisible();
   await page.getByRole("navigation", { name: "Workspace", exact: true }).getByRole("button", { name: "Readiness map" }).click();
-  await expect(page.getByRole("button", { name: /Security & Privacy/ })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: /Security & Privacy/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByText("Not assessed yet")).toBeVisible();
-  await page.getByRole("button", { name: /Security & Privacy/ }).click();
   await page.getByRole("button", { name: /Checkpoint: Have your builder/ }).click();
   await page.getByRole("button", { name: "Generate engineering prompt", exact: true }).click();
   await page.getByRole("button", { name: "Copy engineering prompt", exact: true }).click();
@@ -51,7 +50,6 @@ test("full founder workflow: profile, map, evidence, confirmation, and approved 
   await expect(page.getByText("1 of 4", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Verify Stripe subscription events" }).first()).toBeVisible();
   await page.getByRole("button", { name: "Readiness map", exact: true }).click();
-  await page.getByRole("button", { name: /^Reliability & Operations/ }).click();
   await expect(page.getByRole("button", { name: /Risk P0 · Critical Verify Stripe subscription events/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("map-desktop.png"), fullPage: true });
   const outsider = await browser.newContext(); const outsiderPage = await outsider.newPage(); await outsiderPage.goto(workspaceUrl);
