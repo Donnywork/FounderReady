@@ -2,7 +2,9 @@
   "name": "founder-ready",
   "private": true,
   "packageManager": "pnpm@11.21.0",
-  "engines": { "node": ">=24.21.0 <25" },
+  "engines": {
+    "node": ">=24.21.0 <25"
+  },
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -20,5 +22,10 @@
     "db:down": "docker compose down",
     "db:migrate": "pnpm --filter @founderready/web db:migrate"
   },
-  "devDependencies": { "turbo": "2.11.10" }
+  "devDependencies": {
+    "turbo": "2.11.10"
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
 }
